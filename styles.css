@@ -1,0 +1,91 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background-color: #0a0a0a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #fff;
+}
+
+.container {
+  position: relative;
+  width: 100%;
+  max-width: 1280px;
+  aspect-ratio: 1280 / 720;
+  max-height: 100vh;
+}
+
+#canvasContainer {
+  position: absolute;
+  inset: 0;
+  transform: scaleX(-1);
+  z-index: 0;
+}
+
+#canvasContainer canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+video {
+  display: none;
+}
+
+.ui {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 12px 16px;
+  border-radius: 8px;
+}
+
+.ui h1 {
+  font-size: 1.25rem;
+  margin-bottom: 4px;
+}
+
+.ui p {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 12px;
+}
+
+.model-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.model-picker label {
+  font-size: 0.8rem;
+  opacity: 0.8;
+}
+
+.model-picker select {
+  padding: 6px 10px;
+  border-radius: 4px;
+  background: #222;
+  color: #fff;
+  border: 1px solid #444;
+  max-width: 200px;
+}
+
+.model-picker .hint {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.model-picker input[type="file"] {
+  font-size: 0.8rem;
+  color: #fff;
+}

@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FaceOn — Face Tracking Avatar</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.skypack.dev/three@0.150.1",
+        "three/addons/": "https://cdn.skypack.dev/three@0.150.1/examples/jsm/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="ui">
+      <h1>FaceOn</h1>
+      <p>Your face drives the 3D avatar. Allow webcam access.</p>
+      <div class="model-picker">
+        <label>Model:</label>
+        <select id="modelSelect">
+          <option value="watchdog">WatchDog (default)</option>
+          <option value="raccoon">Raccoon (demo)</option>
+        </select>
+        <span class="hint">Or upload a GLB with 52 ARKit blend shapes:</span>
+        <input type="file" id="fileInput" accept=".glb,.gltf" />
+      </div>
+    </div>
+    <video id="video" autoplay playsinline></video>
+    <div id="canvasContainer"></div>
+  </div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
