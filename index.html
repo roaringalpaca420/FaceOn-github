@@ -40,20 +40,40 @@
     <div id="canvasContainer"></div>
   </div>
   <script>
-    window.faceOnReady = false;
+    window.faceOnLogs = [];
+    window.faceOnLog = function(msg) {
+      var e = { t: new Date().toISOString().slice(11, 23), msg: String(msg) };
+      window.faceOnLogs.push(e);
+      if (window.faceOnLogs.length > 100) window.faceOnLogs.shift();
+      console.log("[" + e.t + "] " + msg);
+    };
+    window.faceOnGetLogs = function() {
+      return window.faceOnLogs.length
+        ? window.faceOnLogs.map(function(e) { return "[" + e.t + "] " + e.msg; }).join("\n")
+        : "(no logs yet)";
+    };
+
     document.getElementById("startBtn").addEventListener("click", function() {
-      if (window.faceOnStartCamera) window.faceOnStartCamera();
-      else console.error("FaceOn not ready");
+      document.getElementById("status").textContent = "Loading...";
+      import("./app.js").then(function(m) {
+        m.startApp();
+      }).catch(function(e) {
+        window.faceOnLog("Load error: " + (e && e.message ? e.message : e));
+        document.getElementById("status").textContent = "Failed to load. Check Settings > Logs.";
+      });
     });
+
     document.getElementById("settingsBtn").addEventListener("click", function() {
-      var p = document.getElementById("settingsPanel");
-      p.classList.toggle("hidden");
+      document.getElementById("settingsPanel").classList.toggle("hidden");
     });
+
     document.getElementById("logBtn").addEventListener("click", function() {
-      var text = window.faceOnGetLogs ? window.faceOnGetLogs() : "(loading...)";
+      var text = window.faceOnGetLogs();
       document.getElementById("logOutput").textContent = text;
-      navigator.clipboard.writeText(text).catch(function(){});
+      navigator.clipboard.writeText(text).catch(function() {});
     });
+
+    window.faceOnLog("Page loaded");
   </script>
   <script type="module" src="app.js"></script>
 </body>

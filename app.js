@@ -15,19 +15,9 @@ const MODELS = {
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
 };
 
-// Logging
-const logs = [];
-const MAX_LOGS = 100;
-
-function log(msg, type = "info") {
-  const entry = { t: new Date().toISOString().slice(11, 23), msg, type };
-  logs.push(entry);
-  if (logs.length > MAX_LOGS) logs.shift();
-  console.log(`[${entry.t}] ${msg}`);
-}
-
-function getLogText() {
-  return logs.map((e) => `[${e.t}] ${e.msg}`).join("\n");
+function log(msg) {
+  if (window.faceOnLog) window.faceOnLog(msg);
+  else console.log(msg);
 }
 
 function getViewportSizeAtDepth(camera, depth) {
@@ -160,13 +150,12 @@ let video = null;
 let avatar = null;
 let trackingActive = false;
 let faceDetectedCount = 0;
-
-const scene = new BasicScene();
-const statusEl = document.getElementById("status");
-const startBtn = document.getElementById("startBtn");
+let scene = null;
+let statusEl = null;
+let startBtn = null;
 
 function setStatus(msg) {
-  statusEl.textContent = msg;
+  if (statusEl) statusEl.textContent = msg;
 }
 
 function detectFaceLandmarks(time) {
@@ -228,7 +217,7 @@ async function streamWebcam() {
 }
 
 function loadAvatar(url) {
-  avatar = new Avatar(url, scene.scene);
+  if (scene) avatar = new Avatar(url, scene.scene);
 }
 
 function initModelPicker() {
@@ -244,7 +233,7 @@ function initModelPicker() {
 }
 
 function initSettings() {
-  window.faceOnGetLogs = getLogText;
+  // Logs already provided by inline script
 }
 
 async function initMediaPipe() {
@@ -271,21 +260,27 @@ async function initMediaPipe() {
   }
 }
 
-async function run() {
+export async function startApp() {
+  statusEl = document.getElementById("status");
+  startBtn = document.getElementById("startBtn");
   log("FaceOn starting");
-  setStatus("Loading...");
-  window.faceOnStartCamera = streamWebcam;
+  setStatus("Loading scene...");
+  try {
+    scene = new BasicScene();
+  } catch (e) {
+    log("Scene error: " + (e && e.message ? e.message : e));
+    setStatus("Scene failed. Check logs.");
+    return;
+  }
   initModelPicker();
   initSettings();
   loadAvatar(MODELS.watchdog);
-  await initMediaPipe();
-  window.faceOnReady = true;
-  if (!trackingActive) {
-    setStatus("Click Start Camera to begin.");
+  setStatus("Loading face tracking...");
+  try {
+    await initMediaPipe();
+  } catch (e) {
+    log("MediaPipe error: " + (e && e.message ? e.message : e));
   }
+  startBtn.addEventListener("click", streamWebcam);
+  await streamWebcam();
 }
-
-run().catch((e) => {
-  log("Startup error: " + (e.message || e), "error");
-  setStatus("Error: " + (e.message || "Check console."));
-});
