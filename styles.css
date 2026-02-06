@@ -43,7 +43,8 @@ video {
   position: absolute;
   top: 12px;
   left: 12px;
-  z-index: 10;
+  z-index: 100;
+  pointer-events: auto;
   background: rgba(0, 0, 0, 0.6);
   padding: 12px 16px;
   border-radius: 8px;
@@ -114,7 +115,8 @@ video {
   position: absolute;
   top: 12px;
   right: 12px;
-  z-index: 10;
+  z-index: 100;
+  pointer-events: auto;
   width: 36px;
   height: 36px;
   padding: 0;
@@ -134,7 +136,8 @@ video {
   position: absolute;
   top: 12px;
   right: 56px;
-  z-index: 11;
+  z-index: 101;
+  pointer-events: auto;
   background: rgba(0, 0, 0, 0.85);
   padding: 12px 16px;
   border-radius: 8px;

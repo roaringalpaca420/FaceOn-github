@@ -244,22 +244,7 @@ function initModelPicker() {
 }
 
 function initSettings() {
-  const gear = document.getElementById("settingsBtn");
-  const panel = document.getElementById("settingsPanel");
-  const logBtn = document.getElementById("logBtn");
-  const logOut = document.getElementById("logOutput");
-
-  gear.addEventListener("click", () => {
-    panel.classList.toggle("hidden");
-  });
-
-  logBtn.addEventListener("click", () => {
-    const text = getLogText();
-    logOut.textContent = text || "(no logs yet)";
-    navigator.clipboard.writeText(text || "").then(() => {
-      log("Logs copied to clipboard");
-    }).catch(() => {});
-  });
+  window.faceOnGetLogs = getLogText;
 }
 
 async function initMediaPipe() {
@@ -289,14 +274,12 @@ async function initMediaPipe() {
 async function run() {
   log("FaceOn starting");
   setStatus("Loading...");
+  window.faceOnStartCamera = streamWebcam;
   initModelPicker();
   initSettings();
   loadAvatar(MODELS.watchdog);
-
-  startBtn.addEventListener("click", streamWebcam);
-
   await initMediaPipe();
-
+  window.faceOnReady = true;
   if (!trackingActive) {
     setStatus("Click Start Camera to begin.");
   }

@@ -39,6 +39,22 @@
     <video id="video" autoplay playsinline></video>
     <div id="canvasContainer"></div>
   </div>
+  <script>
+    window.faceOnReady = false;
+    document.getElementById("startBtn").addEventListener("click", function() {
+      if (window.faceOnStartCamera) window.faceOnStartCamera();
+      else console.error("FaceOn not ready");
+    });
+    document.getElementById("settingsBtn").addEventListener("click", function() {
+      var p = document.getElementById("settingsPanel");
+      p.classList.toggle("hidden");
+    });
+    document.getElementById("logBtn").addEventListener("click", function() {
+      var text = window.faceOnGetLogs ? window.faceOnGetLogs() : "(loading...)";
+      document.getElementById("logOutput").textContent = text;
+      navigator.clipboard.writeText(text).catch(function(){});
+    });
+  </script>
   <script type="module" src="app.js"></script>
 </body>
 </html>
