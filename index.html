@@ -9,8 +9,8 @@
   <script type="importmap">
     {
       "imports": {
-        "three": "https://cdn.skypack.dev/three@0.150.1",
-        "three/addons/": "https://cdn.skypack.dev/three@0.150.1/examples/jsm/"
+        "three": "https://cdn.jsdelivr.net/npm/three@0.150.1/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.150.1/examples/jsm/"
       }
     }
   </script>
@@ -41,25 +41,30 @@
   </div>
   <script>
     window.faceOnLogs = [];
-    window.faceOnLog = function(msg) {
-      var e = { t: new Date().toISOString().slice(11, 23), msg: String(msg) };
-      window.faceOnLogs.push(e);
-      if (window.faceOnLogs.length > 100) window.faceOnLogs.shift();
-      console.log("[" + e.t + "] " + msg);
+    window.faceOnLog = function(msg, detail) {
+      var d = new Date();
+      var t = d.toLocaleString("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+      var full = detail ? msg + " | " + detail : msg;
+      window.faceOnLogs.push({ t: t, msg: full });
+      if (window.faceOnLogs.length > 150) window.faceOnLogs.shift();
+      console.log("[" + t + "] " + full);
     };
     window.faceOnGetLogs = function() {
       return window.faceOnLogs.length
-        ? window.faceOnLogs.map(function(e) { return "[" + e.t + "] " + e.msg; }).join("\n")
+        ? window.faceOnLogs.map(function(e) { return e.t + " | " + e.msg; }).join("\n")
         : "(no logs yet)";
     };
 
     document.getElementById("startBtn").addEventListener("click", function() {
       document.getElementById("status").textContent = "Loading...";
+      window.faceOnLog("Start clicked", "Dynamic import starting");
       import("./app.js").then(function(m) {
-        m.startApp();
+        window.faceOnLog("Module loaded", "Calling startApp");
+        return m.startApp();
       }).catch(function(e) {
-        window.faceOnLog("Load error: " + (e && e.message ? e.message : e));
-        document.getElementById("status").textContent = "Failed to load. Check Settings > Logs.";
+        window.faceOnLog("Load error", (e && e.message ? e.message : String(e)));
+        if (e && e.stack) window.faceOnLog("Stack", e.stack.slice(0, 300));
+        document.getElementById("status").textContent = "Failed. Check Settings > Logs.";
       });
     });
 
@@ -73,8 +78,7 @@
       navigator.clipboard.writeText(text).catch(function() {});
     });
 
-    window.faceOnLog("Page loaded");
+    window.faceOnLog("Page loaded", "Click Start to begin");
   </script>
-  <script type="module" src="app.js"></script>
 </body>
 </html>

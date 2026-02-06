@@ -3,8 +3,8 @@
  */
 
 import * as THREE from "three";
-import OrbitControls from "three/addons/controls/OrbitControls.js";
-import GLTFLoader from "three/addons/loaders/GLTFLoader.js";
+import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import {
   FilesetResolver,
   FaceLandmarker,
@@ -15,9 +15,9 @@ const MODELS = {
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
 };
 
-function log(msg) {
-  if (window.faceOnLog) window.faceOnLog(msg);
-  else console.log(msg);
+function log(msg, detail) {
+  if (window.faceOnLog) window.faceOnLog(msg, detail);
+  else console.log(detail ? msg + " | " + detail : msg);
 }
 
 function getViewportSizeAtDepth(camera, depth) {
@@ -95,7 +95,7 @@ class Avatar {
 
   loadModel(url) {
     this.url = url;
-    log("Loading model: " + url);
+    log("loadModel", "URL: " + url);
     this.loader.load(
       url,
       (gltf) => {
@@ -106,11 +106,14 @@ class Avatar {
         this.gltf = gltf;
         this.scene.add(gltf.scene);
         this.init(gltf);
-        log("Model loaded, morph meshes: " + this.morphTargetMeshes.length);
+        log("loadModel OK", "morph meshes: " + this.morphTargetMeshes.length);
       },
-      undefined,
+      (xhr) => {
+        if (xhr.lengthComputable && xhr.total > 0)
+          log("loadModel progress", Math.round(100 * xhr.loaded / xhr.total) + "%");
+      },
       (err) => {
-        log("Model load error: " + (err.message || err), "error");
+        log("loadModel ERROR", err && err.message ? err.message : String(err));
       }
     );
   }
@@ -180,7 +183,7 @@ function detectFaceLandmarks(time) {
       avatar.updateBlendshapes(map);
     }
   } catch (e) {
-    log("Detect error: " + e.message, "error");
+    log("detectFaceLandmarks ERROR", e && e.message ? e.message : String(e));
   }
 }
 
@@ -190,28 +193,46 @@ function onVideoFrame(time) {
 }
 
 async function streamWebcam() {
-  video = document.getElementById("video");
+  const videoEl = document.getElementById("video");
+  if (!videoEl) {
+    log("streamWebcam", "video element not found");
+    setStatus("Error: video element missing");
+    return;
+  }
+  video = videoEl;
   setStatus("Requesting camera...");
+  log("streamWebcam", "Calling getUserMedia (facingMode: user)");
   startBtn.disabled = true;
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
+    const constraints = {
       audio: false,
-      video: { facingMode: "user", width: 1280, height: 720 },
-    });
+      video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+    };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    log("streamWebcam", "getUserMedia succeeded, tracks: " + stream.getVideoTracks().length);
     video.srcObject = stream;
-    video.onloadedmetadata = () => video.play();
-    log("Camera started");
-    setStatus("Loading face tracking...");
+    const track = stream.getVideoTracks()[0];
+    log("streamWebcam", "Video track: " + (track ? track.label : "none") + ", readyState: " + (track ? track.readyState : "?"));
+    await new Promise((resolve, reject) => {
+      video.onloadedmetadata = () => {
+        log("streamWebcam", "video.onloadedmetadata fired, dimensions: " + video.videoWidth + "x" + video.videoHeight);
+        resolve();
+      };
+      video.onerror = (e) => reject(new Error("Video error: " + (video.error ? video.error.message : "unknown")));
+      if (video.readyState >= 1) resolve();
+    });
+    log("streamWebcam", "Starting video.play()");
+    await video.play();
+    log("streamWebcam", "Video playing, readyState: " + video.readyState);
     trackingActive = true;
     video.requestVideoFrameCallback(onVideoFrame);
-    if (faceLandmarker) {
-      setStatus("Tracking. Your face drives the avatar.");
-    } else {
-      setStatus("Loading MediaPipe...");
-    }
+    log("streamWebcam", "requestVideoFrameCallback registered");
+    setStatus(faceLandmarker ? "Tracking. Your face drives the avatar." : "Camera on. Loading face tracking...");
   } catch (e) {
-    log("Camera error: " + (e.message || e.name || "Permission denied"), "error");
-    setStatus("Camera error: " + (e.message || "Allow access when prompted."));
+    const errMsg = e && e.message ? e.message : (e && e.name ? e.name : String(e));
+    log("streamWebcam ERROR", errMsg);
+    if (e && e.stack) log("stack", e.stack.slice(0, 400));
+    setStatus("Camera error: " + errMsg);
     startBtn.disabled = false;
   }
 }
@@ -238,10 +259,11 @@ function initSettings() {
 
 async function initMediaPipe() {
   try {
-    log("Loading MediaPipe...");
+    log("initMediaPipe", "Loading FilesetResolver...");
     const vision = await FilesetResolver.forVisionTasks(
       "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
     );
+    log("initMediaPipe", "FilesetResolver ready, loading FaceLandmarker model...");
     faceLandmarker = await FaceLandmarker.createFromModelPath(
       vision,
       "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
@@ -252,23 +274,33 @@ async function initMediaPipe() {
       outputFaceBlendshapes: true,
       outputFacialTransformationMatrixes: true,
     });
-    log("MediaPipe ready");
+    log("initMediaPipe OK", "FaceLandmarker ready");
     if (trackingActive) setStatus("Tracking. Your face drives the avatar.");
   } catch (e) {
-    log("MediaPipe error: " + (e.message || e), "error");
-    setStatus("Face tracking failed. Check console.");
+    const errMsg = e && e.message ? e.message : String(e);
+    log("initMediaPipe ERROR", errMsg);
+    if (e && e.stack) log("stack", e.stack.slice(0, 400));
+    setStatus("Face tracking failed. Check logs.");
   }
 }
 
 export async function startApp() {
+  log("startApp", "Entry");
   statusEl = document.getElementById("status");
   startBtn = document.getElementById("startBtn");
-  log("FaceOn starting");
+  if (!statusEl || !startBtn) {
+    log("startApp ERROR", "status or startBtn element not found");
+    return;
+  }
   setStatus("Loading scene...");
   try {
+    log("startApp", "Creating BasicScene");
     scene = new BasicScene();
+    log("startApp", "BasicScene created");
   } catch (e) {
-    log("Scene error: " + (e && e.message ? e.message : e));
+    const errMsg = e && e.message ? e.message : String(e);
+    log("startApp ERROR", "BasicScene: " + errMsg);
+    if (e && e.stack) log("stack", e.stack.slice(0, 400));
     setStatus("Scene failed. Check logs.");
     return;
   }
@@ -279,8 +311,9 @@ export async function startApp() {
   try {
     await initMediaPipe();
   } catch (e) {
-    log("MediaPipe error: " + (e && e.message ? e.message : e));
+    log("startApp", "initMediaPipe threw: " + (e && e.message ? e.message : e));
   }
   startBtn.addEventListener("click", streamWebcam);
+  setStatus("Starting camera...");
   await streamWebcam();
 }
