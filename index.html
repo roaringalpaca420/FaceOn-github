@@ -19,16 +19,22 @@
   <div class="container">
     <div class="ui">
       <h1>FaceOn</h1>
-      <p>Your face drives the 3D avatar. Allow webcam access.</p>
+      <p id="status">Loading...</p>
+      <button id="startBtn">Start Camera</button>
       <div class="model-picker">
         <label>Model:</label>
         <select id="modelSelect">
-          <option value="watchdog">WatchDog (default)</option>
+          <option value="watchdog">WatchDog</option>
           <option value="raccoon">Raccoon (demo)</option>
         </select>
-        <span class="hint">Or upload a GLB with 52 ARKit blend shapes:</span>
-        <input type="file" id="fileInput" accept=".glb,.gltf" />
+        <span class="hint">Or <input type="file" id="fileInput" accept=".glb,.gltf" /> upload GLB</span>
       </div>
+    </div>
+    <button id="settingsBtn" class="settings-gear" title="Settings">⚙</button>
+    <div id="settingsPanel" class="settings-panel hidden">
+      <h3>Settings</h3>
+      <button id="logBtn">Copy & Show Logs</button>
+      <pre id="logOutput"></pre>
     </div>
     <video id="video" autoplay playsinline></video>
     <div id="canvasContainer"></div>

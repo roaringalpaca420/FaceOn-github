@@ -1,6 +1,5 @@
 /**
- * FaceOn — Face tracking avatar powered by MediaPipe + Three.js
- * Uses 52 ARKit blend shapes for facial expressions.
+ * FaceOn — Face tracking avatar with MediaPipe + Three.js
  */
 
 import * as THREE from "three";
@@ -9,29 +8,38 @@ import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import {
   FilesetResolver,
   FaceLandmarker,
-} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
+} from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
-// Model URLs
 const MODELS = {
   watchdog: "models/WatchDog_52blendshapes.glb",
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
 };
 
+// Logging
+const logs = [];
+const MAX_LOGS = 100;
+
+function log(msg, type = "info") {
+  const entry = { t: new Date().toISOString().slice(11, 23), msg, type };
+  logs.push(entry);
+  if (logs.length > MAX_LOGS) logs.shift();
+  console.log(`[${entry.t}] ${msg}`);
+}
+
+function getLogText() {
+  return logs.map((e) => `[${e.t}] ${e.msg}`).join("\n");
+}
+
 function getViewportSizeAtDepth(camera, depth) {
-  const viewportHeightAtDepth =
-    2 * depth * Math.tan(THREE.MathUtils.degToRad(0.5 * camera.fov));
-  const viewportWidthAtDepth = viewportHeightAtDepth * camera.aspect;
-  return new THREE.Vector2(viewportWidthAtDepth, viewportHeightAtDepth);
+  const h = 2 * depth * Math.tan(THREE.MathUtils.degToRad(0.5 * camera.fov));
+  return new THREE.Vector2(h * camera.aspect, h);
 }
 
 function createCameraPlaneMesh(camera, depth, material) {
-  const viewportSize = getViewportSizeAtDepth(camera, depth);
-  const geometry = new THREE.PlaneGeometry(
-    viewportSize.width,
-    viewportSize.height
-  );
-  geometry.translate(0, 0, -depth);
-  return new THREE.Mesh(geometry, material);
+  const size = getViewportSizeAtDepth(camera, depth);
+  const geom = new THREE.PlaneGeometry(size.width, size.height);
+  geom.translate(0, 0, -depth);
+  return new THREE.Mesh(geom, material);
 }
 
 class BasicScene {
@@ -40,7 +48,6 @@ class BasicScene {
     this.width = (this.height * 1280) / 720;
     this.lastTime = 0;
     this.callbacks = [];
-
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(60, this.width / this.height, 0.01, 5000);
     this.renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -48,28 +55,20 @@ class BasicScene {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.getElementById("canvasContainer").appendChild(this.renderer.domElement);
 
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-    this.scene.add(ambientLight);
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
-    dirLight.position.set(0, 1, 0);
-    this.scene.add(dirLight);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const d = new THREE.DirectionalLight(0xffffff, 0.5);
+    d.position.set(0, 1, 0);
+    this.scene.add(d);
 
     this.camera.position.z = 0;
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
-    const orbitTarget = this.camera.position.clone();
-    orbitTarget.z -= 5;
-    this.controls.target = orbitTarget;
+    this.controls.target.copy(this.camera.position).z -= 5;
     this.controls.update();
 
     const video = document.getElementById("video");
-    const videoTexture = new THREE.VideoTexture(video);
-    videoTexture.colorSpace = THREE.SRGBColorSpace;
-    const plane = createCameraPlaneMesh(
-      this.camera,
-      500,
-      new THREE.MeshBasicMaterial({ map: videoTexture })
-    );
-    this.scene.add(plane);
+    const tex = new THREE.VideoTexture(video);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    this.scene.add(createCameraPlaneMesh(this.camera, 500, new THREE.MeshBasicMaterial({ map: tex })));
 
     this.render();
     window.addEventListener("resize", () => this.resize());
@@ -106,6 +105,7 @@ class Avatar {
 
   loadModel(url) {
     this.url = url;
+    log("Loading model: " + url);
     this.loader.load(
       url,
       (gltf) => {
@@ -116,23 +116,23 @@ class Avatar {
         this.gltf = gltf;
         this.scene.add(gltf.scene);
         this.init(gltf);
-        console.log("Model loaded:", url);
+        log("Model loaded, morph meshes: " + this.morphTargetMeshes.length);
       },
       undefined,
-      (err) => console.error("Failed to load model:", err)
+      (err) => {
+        log("Model load error: " + (err.message || err), "error");
+      }
     );
   }
 
   init(gltf) {
     this.root = null;
-    gltf.scene.traverse((object) => {
-      if (object.isBone && !this.root) this.root = object;
-      if (!object.isMesh) return;
-      const mesh = object;
-      mesh.frustumCulled = false;
-      if (mesh.morphTargetDictionary && mesh.morphTargetInfluences) {
-        this.morphTargetMeshes.push(mesh);
-      }
+    gltf.scene.traverse((obj) => {
+      if (obj.isBone && !this.root) this.root = obj;
+      if (!obj.isMesh) return;
+      obj.frustumCulled = false;
+      if (obj.morphTargetDictionary && obj.morphTargetInfluences)
+        this.morphTargetMeshes.push(obj);
     });
   }
 
@@ -141,14 +141,13 @@ class Avatar {
       if (!mesh.morphTargetDictionary || !mesh.morphTargetInfluences) continue;
       for (const [name, value] of blendshapes) {
         if (!(name in mesh.morphTargetDictionary)) continue;
-        const idx = mesh.morphTargetDictionary[name];
-        mesh.morphTargetInfluences[idx] = value;
+        mesh.morphTargetInfluences[mesh.morphTargetDictionary[name]] = value;
       }
     }
   }
 
   applyMatrix(matrix, opts = {}) {
-    const { scale = 40 } = opts;
+    const scale = opts.scale ?? 40;
     if (!this.gltf) return;
     matrix.scale(new THREE.Vector3(scale, scale, scale));
     this.gltf.scene.matrixAutoUpdate = false;
@@ -159,47 +158,73 @@ class Avatar {
 let faceLandmarker = null;
 let video = null;
 let avatar = null;
+let trackingActive = false;
+let faceDetectedCount = 0;
 
 const scene = new BasicScene();
+const statusEl = document.getElementById("status");
+const startBtn = document.getElementById("startBtn");
+
+function setStatus(msg) {
+  statusEl.textContent = msg;
+}
 
 function detectFaceLandmarks(time) {
-  if (!faceLandmarker || !video) return;
-  const landmarks = faceLandmarker.detectForVideo(video, time);
-
-  const matrices = landmarks.facialTransformationMatrixes;
-  if (matrices && matrices.length > 0 && avatar) {
-    const matrix = new THREE.Matrix4().fromArray(matrices[0].data);
-    avatar.applyMatrix(matrix, { scale: 40 });
-  }
-
-  const blendshapes = landmarks.faceBlendshapes;
-  if (blendshapes && blendshapes.length > 0 && avatar) {
-    const coefsMap = new Map();
-    for (const cat of blendshapes[0].categories) {
-      let score = cat.score;
-      if (["browOuterUpLeft", "browOuterUpRight", "eyeBlinkLeft", "eyeBlinkRight"].includes(cat.categoryName)) {
-        score *= 1.2;
-      }
-      coefsMap.set(cat.categoryName, score);
+  if (!faceLandmarker || !video || !trackingActive) return;
+  try {
+    const landmarks = faceLandmarker.detectForVideo(video, time);
+    const matrices = landmarks.facialTransformationMatrixes;
+    const blendshapes = landmarks.faceBlendshapes;
+    if (matrices && matrices.length > 0 && avatar) {
+      const m = new THREE.Matrix4().fromArray(matrices[0].data);
+      avatar.applyMatrix(m, { scale: 40 });
     }
-    avatar.updateBlendshapes(coefsMap);
+    if (blendshapes && blendshapes.length > 0 && avatar) {
+      faceDetectedCount++;
+      const map = new Map();
+      for (const c of blendshapes[0].categories) {
+        let s = c.score;
+        if (["browOuterUpLeft", "browOuterUpRight", "eyeBlinkLeft", "eyeBlinkRight"].includes(c.categoryName))
+          s *= 1.2;
+        map.set(c.categoryName, s);
+      }
+      avatar.updateBlendshapes(map);
+    }
+  } catch (e) {
+    log("Detect error: " + e.message, "error");
   }
 }
 
 function onVideoFrame(time) {
   detectFaceLandmarks(time);
-  video.requestVideoFrameCallback(onVideoFrame);
+  if (video) video.requestVideoFrameCallback(onVideoFrame);
 }
 
 async function streamWebcam() {
   video = document.getElementById("video");
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: false,
-    video: { facingMode: "user", width: 1280, height: 720 },
-  });
-  video.srcObject = stream;
-  video.onloadedmetadata = () => video.play();
-  video.requestVideoFrameCallback(onVideoFrame);
+  setStatus("Requesting camera...");
+  startBtn.disabled = true;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: { facingMode: "user", width: 1280, height: 720 },
+    });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => video.play();
+    log("Camera started");
+    setStatus("Loading face tracking...");
+    trackingActive = true;
+    video.requestVideoFrameCallback(onVideoFrame);
+    if (faceLandmarker) {
+      setStatus("Tracking. Your face drives the avatar.");
+    } else {
+      setStatus("Loading MediaPipe...");
+    }
+  } catch (e) {
+    log("Camera error: " + (e.message || e.name || "Permission denied"), "error");
+    setStatus("Camera error: " + (e.message || "Allow access when prompted."));
+    startBtn.disabled = false;
+  }
 }
 
 function loadAvatar(url) {
@@ -207,44 +232,77 @@ function loadAvatar(url) {
 }
 
 function initModelPicker() {
-  const select = document.getElementById("modelSelect");
-  const fileInput = document.getElementById("fileInput");
+  const sel = document.getElementById("modelSelect");
+  const fileIn = document.getElementById("fileInput");
+  sel.addEventListener("change", () => {
+    loadAvatar(sel.value === "raccoon" ? MODELS.raccoon : MODELS.watchdog);
+  });
+  fileIn.addEventListener("change", (e) => {
+    const f = e.target.files?.[0];
+    if (f) loadAvatar(URL.createObjectURL(f));
+  });
+}
 
-  select.addEventListener("change", () => {
-    const val = select.value;
-    if (val === "raccoon") loadAvatar(MODELS.raccoon);
-    else loadAvatar(MODELS.watchdog);
+function initSettings() {
+  const gear = document.getElementById("settingsBtn");
+  const panel = document.getElementById("settingsPanel");
+  const logBtn = document.getElementById("logBtn");
+  const logOut = document.getElementById("logOutput");
+
+  gear.addEventListener("click", () => {
+    panel.classList.toggle("hidden");
   });
 
-  fileInput.addEventListener("change", (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    loadAvatar(url);
+  logBtn.addEventListener("click", () => {
+    const text = getLogText();
+    logOut.textContent = text || "(no logs yet)";
+    navigator.clipboard.writeText(text || "").then(() => {
+      log("Logs copied to clipboard");
+    }).catch(() => {});
   });
+}
+
+async function initMediaPipe() {
+  try {
+    log("Loading MediaPipe...");
+    const vision = await FilesetResolver.forVisionTasks(
+      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
+    );
+    faceLandmarker = await FaceLandmarker.createFromModelPath(
+      vision,
+      "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
+    );
+    faceLandmarker.setOptions({
+      baseOptions: { delegate: "GPU" },
+      runningMode: "VIDEO",
+      outputFaceBlendshapes: true,
+      outputFacialTransformationMatrixes: true,
+    });
+    log("MediaPipe ready");
+    if (trackingActive) setStatus("Tracking. Your face drives the avatar.");
+  } catch (e) {
+    log("MediaPipe error: " + (e.message || e), "error");
+    setStatus("Face tracking failed. Check console.");
+  }
 }
 
 async function run() {
+  log("FaceOn starting");
+  setStatus("Loading...");
   initModelPicker();
+  initSettings();
   loadAvatar(MODELS.watchdog);
 
-  await streamWebcam();
+  startBtn.addEventListener("click", streamWebcam);
 
-  const vision = await FilesetResolver.forVisionTasks(
-    "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm"
-  );
-  faceLandmarker = await FaceLandmarker.createFromModelPath(
-    vision,
-    "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/latest/face_landmarker.task"
-  );
-  faceLandmarker.setOptions({
-    baseOptions: { delegate: "GPU" },
-    runningMode: "VIDEO",
-    outputFaceBlendshapes: true,
-    outputFacialTransformationMatrixes: true,
-  });
+  await initMediaPipe();
 
-  console.log("FaceOn ready.");
+  if (!trackingActive) {
+    setStatus("Click Start Camera to begin.");
+  }
 }
 
-run().catch((e) => console.error(e));
+run().catch((e) => {
+  log("Startup error: " + (e.message || e), "error");
+  setStatus("Error: " + (e.message || "Check console."));
+});

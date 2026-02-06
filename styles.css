@@ -57,7 +57,27 @@ video {
 .ui p {
   font-size: 0.85rem;
   opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+#startBtn {
+  padding: 8px 16px;
   margin-bottom: 12px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+
+#startBtn:hover {
+  background: #1d4ed8;
+}
+
+#startBtn:disabled {
+  background: #555;
+  cursor: not-allowed;
 }
 
 .model-picker {
@@ -88,4 +108,72 @@ video {
 .model-picker input[type="file"] {
   font-size: 0.8rem;
   color: #fff;
+}
+
+.settings-gear {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  background: rgba(0, 0, 0, 0.6);
+  border: none;
+  border-radius: 6px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  color: #fff;
+}
+
+.settings-gear:hover {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.settings-panel {
+  position: absolute;
+  top: 12px;
+  right: 56px;
+  z-index: 11;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 12px 16px;
+  border-radius: 8px;
+  min-width: 260px;
+  max-width: 400px;
+}
+
+.settings-panel.hidden {
+  display: none;
+}
+
+.settings-panel h3 {
+  font-size: 0.95rem;
+  margin-bottom: 10px;
+}
+
+#logBtn {
+  padding: 6px 12px;
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  margin-bottom: 8px;
+}
+
+#logBtn:hover {
+  background: #444;
+}
+
+#logOutput {
+  font-size: 0.7rem;
+  font-family: monospace;
+  max-height: 200px;
+  overflow: auto;
+  background: #111;
+  padding: 8px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
 }
