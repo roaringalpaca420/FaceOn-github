@@ -11,7 +11,7 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
 const MODELS = {
-  watchdog: "models/WatchDog_52blendshapes.glb",
+  watchdog: "WatchDog_52blendshapes.glb",
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
 };
 
@@ -55,10 +55,7 @@ class BasicScene {
     this.controls.target.copy(this.camera.position).z -= 5;
     this.controls.update();
 
-    const video = document.getElementById("video");
-    const tex = new THREE.VideoTexture(video);
-    tex.colorSpace = THREE.SRGBColorSpace;
-    this.scene.add(createCameraPlaneMesh(this.camera, 500, new THREE.MeshBasicMaterial({ map: tex })));
+    this.scene.background = new THREE.Color(0x000000);
 
     this.render();
     window.addEventListener("resize", () => this.resize());
@@ -95,6 +92,7 @@ class Avatar {
 
   loadModel(url) {
     this.url = url;
+    this._lastProgressPct = -1;
     log("loadModel", "URL: " + url);
     this.loader.load(
       url,
@@ -104,13 +102,20 @@ class Avatar {
           this.morphTargetMeshes = [];
         }
         this.gltf = gltf;
+        gltf.scene.position.set(0, 0, -200);
+        gltf.scene.scale.setScalar(40);
         this.scene.add(gltf.scene);
         this.init(gltf);
-        log("loadModel OK", "morph meshes: " + this.morphTargetMeshes.length);
+        log("loadModel OK", "morph meshes: " + this.morphTargetMeshes.length + (this.morphTargetMeshes.length === 0 ? " (no blend shapes - try Raccoon)" : ""));
       },
       (xhr) => {
-        if (xhr.lengthComputable && xhr.total > 0)
-          log("loadModel progress", Math.round(100 * xhr.loaded / xhr.total) + "%");
+        if (xhr.lengthComputable && xhr.total > 0) {
+          const pct = Math.round(100 * xhr.loaded / xhr.total);
+          if ((pct === 100 || pct % 25 === 0) && pct !== this._lastProgressPct) {
+            this._lastProgressPct = pct;
+            log("loadModel progress", pct + "%");
+          }
+        }
       },
       (err) => {
         log("loadModel ERROR", err && err.message ? err.message : String(err));
@@ -124,6 +129,7 @@ class Avatar {
       if (obj.isBone && !this.root) this.root = obj;
       if (!obj.isMesh) return;
       obj.frustumCulled = false;
+      obj.renderOrder = 1;
       if (obj.morphTargetDictionary && obj.morphTargetInfluences)
         this.morphTargetMeshes.push(obj);
     });
@@ -142,9 +148,17 @@ class Avatar {
   applyMatrix(matrix, opts = {}) {
     const scale = opts.scale ?? 40;
     if (!this.gltf) return;
-    matrix.scale(new THREE.Vector3(scale, scale, scale));
+    const m = matrix.clone();
+    m.scale(new THREE.Vector3(scale, scale, scale));
     this.gltf.scene.matrixAutoUpdate = false;
-    this.gltf.scene.matrix.copy(matrix);
+    this.gltf.scene.matrix.copy(m);
+  }
+
+  remove() {
+    if (this.gltf && this.gltf.scene && this.gltf.scene.parent) {
+      this.gltf.scene.parent.remove(this.gltf.scene);
+    }
+    this.morphTargetMeshes = [];
   }
 }
 
@@ -238,7 +252,12 @@ async function streamWebcam() {
 }
 
 function loadAvatar(url) {
-  if (scene) avatar = new Avatar(url, scene.scene);
+  if (!scene) return;
+  if (avatar) {
+    avatar.remove();
+    avatar = null;
+  }
+  avatar = new Avatar(url, scene.scene);
 }
 
 function initModelPicker() {
@@ -306,7 +325,7 @@ export async function startApp() {
   }
   initModelPicker();
   initSettings();
-  loadAvatar(MODELS.watchdog);
+  loadAvatar(MODELS.raccoon);
   setStatus("Loading face tracking...");
   try {
     await initMediaPipe();
