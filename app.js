@@ -92,7 +92,7 @@ class Avatar {
 
   loadModel(url) {
     this.url = url;
-    this._lastProgressPct = -1;
+    this._lastLoggedPct = -1;
     log("loadModel", "URL: " + url);
     this.loader.load(
       url,
@@ -106,14 +106,17 @@ class Avatar {
         gltf.scene.scale.setScalar(40);
         this.scene.add(gltf.scene);
         this.init(gltf);
-        log("loadModel OK", "morph meshes: " + this.morphTargetMeshes.length + (this.morphTargetMeshes.length === 0 ? " (no blend shapes - try Raccoon)" : ""));
+        log("loadModel OK", "morph meshes: " + this.morphTargetMeshes.length + (this.morphTargetMeshes.length === 0 ? " (no blend shapes - use Raccoon or add in Blender)" : ""));
       },
       (xhr) => {
         if (xhr.lengthComputable && xhr.total > 0) {
-          const pct = Math.round(100 * xhr.loaded / xhr.total);
-          if ((pct === 100 || pct % 25 === 0) && pct !== this._lastProgressPct) {
-            this._lastProgressPct = pct;
-            log("loadModel progress", pct + "%");
+          const pct = Math.floor(100 * xhr.loaded / xhr.total);
+          for (const m of [25, 50, 75, 100]) {
+            if (pct >= m && this._lastLoggedPct < m) {
+              this._lastLoggedPct = m;
+              log("loadModel progress", m + "%");
+              break;
+            }
           }
         }
       },
