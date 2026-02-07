@@ -33,7 +33,9 @@
     <button id="settingsBtn" class="settings-gear" title="Settings">⚙</button>
     <div id="settingsPanel" class="settings-panel hidden">
       <h3>Settings</h3>
-      <button id="logBtn">Copy & Show Logs</button>
+      <div class="settings-toolbar">
+        <button id="logBtn">Copy & Show Logs</button>
+      </div>
       <pre id="logOutput"></pre>
     </div>
     <video id="video" autoplay playsinline></video>
@@ -54,11 +56,28 @@
         ? window.faceOnLogs.map(function(e) { return e.t + " | " + e.msg; }).join("\n")
         : "(no logs yet)";
     };
+    window.faceOnGetLogSummary = function() {
+      if (!window.faceOnLogs.length) return "No activity yet.";
+      var msgs = window.faceOnLogs.map(function(e) { return e.msg; });
+      var lines = [];
+      if (msgs.some(function(m) { return m.indexOf("loadModel OK") !== -1; }))
+        lines.push("Model loaded.");
+      if (msgs.some(function(m) { return m.indexOf("loadModel ERROR") !== -1; }))
+        lines.push("Model failed to load.");
+      if (msgs.some(function(m) { return m.indexOf("initMediaPipe OK") !== -1; }))
+        lines.push("Face tracking ready.");
+      if (msgs.some(function(m) { return m.indexOf("streamWebcam") !== -1 && m.indexOf("succeeded") !== -1; }))
+        lines.push("Camera connected.");
+      if (msgs.some(function(m) { return m.indexOf("ERROR") !== -1 || m.indexOf("error") !== -1; }))
+        lines.push("Errors occurred — check logs above.");
+      if (lines.length === 0) lines.push("Waiting for activity.");
+      return "— Summary —\n" + lines.join(" ") + "\n";
+    };
 
     document.getElementById("startBtn").addEventListener("click", function() {
       document.getElementById("status").textContent = "Loading...";
       window.faceOnLog("Start clicked", "Dynamic import starting");
-      import("./app.js").then(function(m) {
+      import("./app.js?v=tracking-fix").then(function(m) {
         window.faceOnLog("Module loaded", "Calling startApp");
         return m.startApp();
       }).catch(function(e) {
@@ -69,11 +88,15 @@
     });
 
     document.getElementById("settingsBtn").addEventListener("click", function() {
-      document.getElementById("settingsPanel").classList.toggle("hidden");
+      var panel = document.getElementById("settingsPanel");
+      panel.classList.toggle("hidden");
+      if (!panel.classList.contains("hidden")) {
+        document.getElementById("logOutput").textContent = window.faceOnGetLogs() + "\n\n" + window.faceOnGetLogSummary();
+      }
     });
 
     document.getElementById("logBtn").addEventListener("click", function() {
-      var text = window.faceOnGetLogs();
+      var text = window.faceOnGetLogs() + "\n\n" + window.faceOnGetLogSummary();
       document.getElementById("logOutput").textContent = text;
       navigator.clipboard.writeText(text).catch(function() {});
     });

@@ -133,16 +133,21 @@ video {
 }
 
 .settings-panel {
-  position: absolute;
-  top: 12px;
-  right: 56px;
-  z-index: 101;
+  position: fixed;
+  inset: 16px;
+  z-index: 1000;
   pointer-events: auto;
-  background: rgba(0, 0, 0, 0.85);
-  padding: 12px 16px;
-  border-radius: 8px;
-  min-width: 260px;
-  max-width: 400px;
+  background: rgba(0, 0, 0, 0.95);
+  padding: 20px 24px;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  max-width: min(900px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 
 .settings-panel.hidden {
@@ -150,19 +155,24 @@ video {
 }
 
 .settings-panel h3 {
-  font-size: 0.95rem;
-  margin-bottom: 10px;
+  font-size: 1.1rem;
+  margin-bottom: 12px;
+  flex-shrink: 0;
+}
+
+.settings-panel .settings-toolbar {
+  flex-shrink: 0;
+  margin-bottom: 12px;
 }
 
 #logBtn {
-  padding: 6px 12px;
+  padding: 8px 16px;
   background: #333;
   color: #fff;
   border: 1px solid #555;
-  border-radius: 4px;
-  font-size: 0.85rem;
+  border-radius: 6px;
+  font-size: 0.9rem;
   cursor: pointer;
-  margin-bottom: 8px;
 }
 
 #logBtn:hover {
@@ -170,13 +180,16 @@ video {
 }
 
 #logOutput {
-  font-size: 0.7rem;
-  font-family: monospace;
-  max-height: 200px;
+  font-size: 0.9rem;
+  line-height: 1.5;
+  font-family: ui-monospace, "Cascadia Code", "Consolas", monospace;
+  flex: 1;
+  min-height: 200px;
   overflow: auto;
-  background: #111;
-  padding: 8px;
-  border-radius: 4px;
+  background: #0d0d0d;
+  padding: 16px;
+  border-radius: 6px;
   white-space: pre-wrap;
-  word-break: break-all;
+  word-break: break-word;
+  color: #e0e0e0;
 }

@@ -45,8 +45,8 @@ class BasicScene {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.getElementById("canvasContainer").appendChild(this.renderer.domElement);
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-    const d = new THREE.DirectionalLight(0xffffff, 0.5);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+    const d = new THREE.DirectionalLight(0xffffff, 1.0);
     d.position.set(0, 1, 0);
     this.scene.add(d);
 
@@ -211,8 +211,9 @@ function detectFaceLandmarks(time) {
   }
 }
 
-function onVideoFrame(time) {
-  detectFaceLandmarks(time);
+function onVideoFrame(now, metadata) {
+  const videoTimeMs = (metadata && metadata.mediaTime != null) ? metadata.mediaTime * 1000 : video.currentTime * 1000;
+  detectFaceLandmarks(videoTimeMs);
   if (video) video.requestVideoFrameCallback(onVideoFrame);
 }
 
