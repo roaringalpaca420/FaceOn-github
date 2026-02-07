@@ -43,50 +43,76 @@
   </div>
   <script>
     window.faceOnLogs = [];
-    window.faceOnLog = function(msg, detail) {
+    window.faceOnLog = function(msg, detail, opts) {
+      opts = opts || {};
       var d = new Date();
-      var t = d.toLocaleString("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
-      var full = detail ? msg + " | " + detail : msg;
-      window.faceOnLogs.push({ t: t, msg: full });
-      if (window.faceOnLogs.length > 2000) window.faceOnLogs.shift();
-      console.log("[" + t + "] " + full);
+      var unixMs = d.getTime();
+      var iso = d.toISOString();
+      var humanTime = d.toLocaleString("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
+      var line = "[" + unixMs + "] [" + iso + "] " + msg;
+      if (detail !== undefined && detail !== null && detail !== "") line += " | " + detail;
+      window.faceOnLogs.push({ unixMs: unixMs, iso: iso, humanTime: humanTime, msg: msg, detail: detail, stack: opts.stack });
+      if (window.faceOnLogs.length > 3000) window.faceOnLogs.shift();
+      if (opts.stack) line += "\n  STACK: " + (opts.stack || "").replace(/\n/g, "\n  ");
+      console.log(line);
     };
     window.faceOnGetLogs = function() {
-      return window.faceOnLogs.length
-        ? window.faceOnLogs.map(function(e) { return e.t + " | " + e.msg; }).join("\n")
-        : "(no logs yet)";
+      if (!window.faceOnLogs.length) return "(no logs yet)";
+      return window.faceOnLogs.map(function(e) {
+        var line = "[" + e.unixMs + "] [" + e.iso + "] " + e.msg;
+        if (e.detail !== undefined && e.detail !== null && e.detail !== "") line += " | " + e.detail;
+        if (e.stack) line += "\n  STACK: " + (e.stack || "").replace(/\n/g, "\n  ");
+        return line;
+      }).join("\n");
     };
     window.faceOnGetLogSummary = function() {
-      if (!window.faceOnLogs.length) return "— Summary —\nNo activity yet.\n";
-      var msgs = window.faceOnLogs.map(function(e) { return e.msg; });
+      var d = new Date();
+      var humanTime = d.toLocaleString("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
       var lines = [];
-      if (msgs.some(function(m) { return m.indexOf("loadModel OK") !== -1; }))
-        lines.push("Model loaded.");
-      if (msgs.some(function(m) { return m.indexOf("loadModel ERROR") !== -1; }))
-        lines.push("Model failed to load.");
-      if (msgs.some(function(m) { return m.indexOf("initMediaPipe OK") !== -1; }))
-        lines.push("Face tracker initialized.");
-      if (msgs.some(function(m) { return m.indexOf("streamWebcam") !== -1 && m.indexOf("succeeded") !== -1; }))
-        lines.push("Camera connected.");
-      if (msgs.some(function(m) { return m.indexOf("faceDetected") !== -1; }))
-        lines.push("Face detected and tracking.");
-      else if (msgs.some(function(m) { return m.indexOf("initMediaPipe OK") !== -1; }))
-        lines.push("No face detected yet (ensure your face is visible).");
-      if (msgs.some(function(m) { return m.indexOf("ERROR") !== -1 || m.indexOf("error") !== -1; }))
-        lines.push("Errors occurred — check logs above.");
-      if (lines.length === 0) lines.push("Waiting for activity.");
-      return "— Summary —\n" + lines.join(" ") + "\n";
+      lines.push("========== HUMAN-READABLE SUMMARY ==========");
+      lines.push("Generated: " + humanTime);
+      lines.push("");
+      if (!window.faceOnLogs.length) {
+        lines.push("No activity logged yet.");
+        return lines.join("\n");
+      }
+      var msgs = window.faceOnLogs.map(function(e) { return e.msg; });
+      var hasLoadModelOk = msgs.some(function(m) { return m.indexOf("loadModel OK") !== -1; });
+      var hasLoadModelErr = msgs.some(function(m) { return m.indexOf("loadModel ERROR") !== -1; });
+      var hasInitMpOk = msgs.some(function(m) { return m.indexOf("initMediaPipe OK") !== -1; });
+      var hasInitMpErr = msgs.some(function(m) { return m.indexOf("initMediaPipe ERROR") !== -1; });
+      var camOk = msgs.some(function(m) { return m.indexOf("getUserMedia succeeded") !== -1; });
+      var hasRvfRegistered = msgs.some(function(m) { return m.indexOf("requestVideoFrameCallback registered") !== -1; });
+      var hasFaceDetected = msgs.some(function(m) { return m.indexOf("faceDetected") !== -1; });
+      var hasDetectEmpty = msgs.some(function(m) { return m.indexOf("detectFaceLandmarks EMPTY") !== -1; });
+      var hasDetectErr = msgs.some(function(m) { return m.indexOf("detectFaceLandmarks ERROR") !== -1; });
+      var hasAnyErr = msgs.some(function(m) { return m.indexOf("ERROR") !== -1 || m.indexOf("error") !== -1; });
+      if (hasLoadModelOk) lines.push("• Model loaded successfully.");
+      if (hasLoadModelErr) lines.push("• Model failed to load.");
+      if (hasInitMpOk) lines.push("• Face tracker (MediaPipe) initialized.");
+      if (hasInitMpErr) lines.push("• Face tracker failed to initialize.");
+      if (camOk) lines.push("• Camera connected.");
+      if (hasRvfRegistered) lines.push("• Video frame callback registered (detection loop running).");
+      if (hasFaceDetected) lines.push("• Face detected: MediaPipe returned face data. Avatar should be tracking.");
+      else if (hasInitMpOk && hasRvfRegistered) {
+        if (hasDetectEmpty) lines.push("• Face NOT detected: MediaPipe returned empty results. Avatar is frozen.");
+        else if (hasDetectErr) lines.push("• Face detection threw errors. Check stack traces above.");
+        else lines.push("• Face NOT detected: No face data from MediaPipe. Avatar is frozen (mouse orbit works, face tracking does not).");
+      }
+      if (hasAnyErr) lines.push("• Errors occurred. See verbose logs above for stack traces.");
+      lines.push("");
+      lines.push("(Summary derived from developer logs above.)");
+      return lines.join("\n");
     };
 
     document.getElementById("startBtn").addEventListener("click", function() {
       document.getElementById("status").textContent = "Loading...";
       window.faceOnLog("Start clicked", "Dynamic import starting");
-      import("./app.js?v=ts2").then(function(m) {
+      import("./app.js?v=devlogs").then(function(m) {
         window.faceOnLog("Module loaded", "Calling startApp");
         return m.startApp();
       }).catch(function(e) {
-        window.faceOnLog("Load error", (e && e.message ? e.message : String(e)));
-        if (e && e.stack) window.faceOnLog("Load error stack", e.stack);
+        window.faceOnLog("Load error", (e && e.message ? e.message : String(e)), e && e.stack ? { stack: e.stack } : {});
         document.getElementById("status").textContent = "Failed. Check Settings > Logs.";
       });
     });
@@ -105,7 +131,7 @@
       navigator.clipboard.writeText(text).catch(function() {});
     });
 
-    window.faceOnLog("Page loaded", "Click Start to begin");
+    window.faceOnLog("page_load", "ready=1 dom=1");
   </script>
 </body>
 </html>

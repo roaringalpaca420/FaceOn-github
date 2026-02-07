@@ -15,8 +15,8 @@ const MODELS = {
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
 };
 
-function log(msg, detail) {
-  if (window.faceOnLog) window.faceOnLog(msg, detail);
+function log(msg, detail, opts) {
+  if (window.faceOnLog) window.faceOnLog(msg, detail, opts || {});
   else console.log(detail ? msg + " | " + detail : msg);
 }
 
@@ -126,8 +126,7 @@ class Avatar {
       },
       (err) => {
         const errStr = err ? (err.message || err.toString()) : "unknown";
-        log("loadModel ERROR", "url=" + this.url + " error=" + errStr);
-        if (err && err.stack) log("loadModel ERROR stack", err.stack);
+        log("loadModel ERROR", "url=" + this.url + " error=" + errStr, err && err.stack ? { stack: err.stack } : {});
         setStatus("Model failed");
       }
     );
@@ -186,17 +185,27 @@ function setStatus(msg) {
 }
 
 let faceDetectedLogged = false;
+let detectFrameCount = 0;
 
 function detectFaceLandmarks(time) {
   if (!faceLandmarker || !video || !trackingActive) return;
+  detectFrameCount++;
   try {
     const landmarks = faceLandmarker.detectForVideo(video, time);
     const matrices = landmarks.facialTransformationMatrixes;
     const blendshapes = landmarks.faceBlendshapes;
-    const hasFace = (matrices && matrices.length > 0) || (blendshapes && blendshapes.length > 0);
+    const matricesLen = matrices ? matrices.length : 0;
+    const blendshapesLen = blendshapes ? blendshapes.length : 0;
+    const hasFace = matricesLen > 0 || blendshapesLen > 0;
     if (hasFace && !faceDetectedLogged) {
       faceDetectedLogged = true;
-      log("faceDetected", "first frame");
+      log("faceDetected", "first frame matrices=" + matricesLen + " blendshapes=" + blendshapesLen);
+    }
+    if (detectFrameCount <= 3 || (detectFrameCount % 90 === 0)) {
+      log("detectFaceLandmarks", "frame=" + detectFrameCount + " ts=" + time + " matrices=" + matricesLen + " blendshapes=" + blendshapesLen + " avatar=" + (avatar ? "yes" : "no"));
+    }
+    if (!hasFace && detectFrameCount <= 5) {
+      log("detectFaceLandmarks EMPTY", "frame=" + detectFrameCount + " ts=" + time + " matrices=" + matricesLen + " blendshapes=" + blendshapesLen);
     }
     if (matrices && matrices.length > 0 && avatar) {
       const m = new THREE.Matrix4().fromArray(matrices[0].data);
@@ -214,7 +223,7 @@ function detectFaceLandmarks(time) {
       avatar.updateBlendshapes(map);
     }
   } catch (e) {
-    log("detectFaceLandmarks ERROR", e && e.message ? e.message : String(e));
+    log("detectFaceLandmarks ERROR", "message=" + (e && e.message ? e.message : String(e)), e && e.stack ? { stack: e.stack } : {});
   }
 }
 
@@ -256,14 +265,14 @@ async function streamWebcam() {
     log("streamWebcam", "Starting video.play()");
     await video.play();
     log("streamWebcam", "Video playing, readyState: " + video.readyState);
+    video.classList.add("camera-live");
     trackingActive = true;
     video.requestVideoFrameCallback(onVideoFrame);
     log("streamWebcam", "requestVideoFrameCallback registered");
     setStatus(faceLandmarker ? "Tracking. Your face drives the avatar." : "Camera on. Loading face tracking...");
   } catch (e) {
     const errMsg = e && e.message ? e.message : (e && e.name ? e.name : String(e));
-    log("streamWebcam ERROR", errMsg);
-    if (e && e.stack) log("stack", e.stack.slice(0, 400));
+    log("streamWebcam ERROR", errMsg, e && e.stack ? { stack: e.stack } : {});
     setStatus("Camera error: " + errMsg);
     startBtn.disabled = false;
   }
@@ -326,8 +335,7 @@ async function initMediaPipe() {
     if (trackingActive) setStatus("Tracking. Your face drives the avatar.");
   } catch (e) {
     const errMsg = e && e.message ? e.message : String(e);
-    log("initMediaPipe ERROR", errMsg);
-    if (e && e.stack) log("initMediaPipe ERROR stack", e.stack);
+    log("initMediaPipe ERROR", errMsg, e && e.stack ? { stack: e.stack } : {});
     setStatus("Face tracking failed. Check logs.");
   }
 }
@@ -347,8 +355,7 @@ export async function startApp() {
     log("startApp", "BasicScene created");
   } catch (e) {
     const errMsg = e && e.message ? e.message : String(e);
-    log("startApp ERROR", "BasicScene: " + errMsg);
-    if (e && e.stack) log("startApp ERROR stack", e.stack);
+    log("startApp ERROR", "BasicScene: " + errMsg, e && e.stack ? { stack: e.stack } : {});
     setStatus("Scene failed. Check logs.");
     return;
   }
