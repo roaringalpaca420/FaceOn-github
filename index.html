@@ -57,7 +57,7 @@
         : "(no logs yet)";
     };
     window.faceOnGetLogSummary = function() {
-      if (!window.faceOnLogs.length) return "No activity yet.";
+      if (!window.faceOnLogs.length) return "— Summary —\nNo activity yet.\n";
       var msgs = window.faceOnLogs.map(function(e) { return e.msg; });
       var lines = [];
       if (msgs.some(function(m) { return m.indexOf("loadModel OK") !== -1; }))
@@ -65,9 +65,13 @@
       if (msgs.some(function(m) { return m.indexOf("loadModel ERROR") !== -1; }))
         lines.push("Model failed to load.");
       if (msgs.some(function(m) { return m.indexOf("initMediaPipe OK") !== -1; }))
-        lines.push("Face tracking ready.");
+        lines.push("Face tracker initialized.");
       if (msgs.some(function(m) { return m.indexOf("streamWebcam") !== -1 && m.indexOf("succeeded") !== -1; }))
         lines.push("Camera connected.");
+      if (msgs.some(function(m) { return m.indexOf("faceDetected") !== -1; }))
+        lines.push("Face detected and tracking.");
+      else if (msgs.some(function(m) { return m.indexOf("initMediaPipe OK") !== -1; }))
+        lines.push("No face detected yet (ensure your face is visible).");
       if (msgs.some(function(m) { return m.indexOf("ERROR") !== -1 || m.indexOf("error") !== -1; }))
         lines.push("Errors occurred — check logs above.");
       if (lines.length === 0) lines.push("Waiting for activity.");
@@ -77,7 +81,7 @@
     document.getElementById("startBtn").addEventListener("click", function() {
       document.getElementById("status").textContent = "Loading...";
       window.faceOnLog("Start clicked", "Dynamic import starting");
-      import("./app.js?v=tracking-fix").then(function(m) {
+      import("./app.js?v=ts2").then(function(m) {
         window.faceOnLog("Module loaded", "Calling startApp");
         return m.startApp();
       }).catch(function(e) {

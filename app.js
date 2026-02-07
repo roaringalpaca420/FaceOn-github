@@ -185,12 +185,19 @@ function setStatus(msg) {
   if (statusEl) statusEl.textContent = msg;
 }
 
+let faceDetectedLogged = false;
+
 function detectFaceLandmarks(time) {
   if (!faceLandmarker || !video || !trackingActive) return;
   try {
     const landmarks = faceLandmarker.detectForVideo(video, time);
     const matrices = landmarks.facialTransformationMatrixes;
     const blendshapes = landmarks.faceBlendshapes;
+    const hasFace = (matrices && matrices.length > 0) || (blendshapes && blendshapes.length > 0);
+    if (hasFace && !faceDetectedLogged) {
+      faceDetectedLogged = true;
+      log("faceDetected", "first frame");
+    }
     if (matrices && matrices.length > 0 && avatar) {
       const m = new THREE.Matrix4().fromArray(matrices[0].data);
       avatar.applyMatrix(m, { scale: 40 });
@@ -212,7 +219,7 @@ function detectFaceLandmarks(time) {
 }
 
 function onVideoFrame(now, metadata) {
-  const videoTimeMs = (metadata && metadata.mediaTime != null) ? metadata.mediaTime * 1000 : video.currentTime * 1000;
+  const videoTimeMs = typeof now === "number" ? now : performance.now();
   detectFaceLandmarks(videoTimeMs);
   if (video) video.requestVideoFrameCallback(onVideoFrame);
 }
