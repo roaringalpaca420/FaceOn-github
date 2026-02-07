@@ -13,6 +13,7 @@ import {
 const MODELS = {
   watchdog: "Watchdog Shape Keys and deforms Compressed .glb",
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
+  raccoonDog: "raccoon dog .glb",
 };
 
 const BLENDSHAPE_ALIASES = {
@@ -289,9 +290,15 @@ function detectFaceLandmarks(time) {
 }
 
 function onVideoFrame(now, metadata) {
-  const videoTimeMs = typeof now === "number" ? now : performance.now();
-  detectFaceLandmarks(videoTimeMs);
-  if (video) video.requestVideoFrameCallback(onVideoFrame);
+  try {
+    const videoTimeMs = typeof now === "number" ? now : performance.now();
+    detectFaceLandmarks(videoTimeMs);
+  } catch (e) {
+    log("onVideoFrame ERROR", e && e.message ? e.message : String(e), e && e.stack ? { stack: e.stack } : {});
+  }
+  if (video && typeof video.requestVideoFrameCallback === "function") {
+    video.requestVideoFrameCallback(onVideoFrame);
+  }
 }
 
 async function streamWebcam() {
@@ -328,8 +335,21 @@ async function streamWebcam() {
     log("streamWebcam", "Video playing, readyState: " + video.readyState);
     video.classList.add("camera-live");
     trackingActive = true;
-    video.requestVideoFrameCallback(onVideoFrame);
-    log("streamWebcam", "requestVideoFrameCallback registered");
+    if (typeof video.requestVideoFrameCallback === "function") {
+      video.requestVideoFrameCallback(onVideoFrame);
+      log("streamWebcam", "requestVideoFrameCallback registered");
+    } else {
+      log("streamWebcam", "requestVideoFrameCallback not available, using requestAnimationFrame fallback");
+      function rafLoop() {
+        try {
+          if (video && trackingActive) detectFaceLandmarks(performance.now());
+        } catch (e) {
+          log("rafLoop ERROR", e && e.message ? e.message : String(e));
+        }
+        requestAnimationFrame(rafLoop);
+      }
+      requestAnimationFrame(rafLoop);
+    }
     setStatus(faceLandmarker ? "Tracking. Your face drives the avatar." : "Camera on. Loading face tracking...");
   } catch (e) {
     const errMsg = e && e.message ? e.message : (e && e.name ? e.name : String(e));
@@ -352,12 +372,14 @@ function loadAvatar(url, source) {
 function initModelPicker() {
   const sel = document.getElementById("modelSelect");
   const fileIn = document.getElementById("fileInput");
-  sel.value = "watchdog";
+  sel.value = "raccoonDog";
   sel.addEventListener("change", () => {
     const choice = sel.value;
     log("modelSelect change", "choice=" + choice);
     if (choice === "raccoon") {
       loadAvatar(MODELS.raccoon, "user-selected-raccoon");
+    } else if (choice === "raccoonDog") {
+      loadAvatar(MODELS.raccoonDog, "user-selected-raccoon-dog");
     } else {
       loadAvatar(MODELS.watchdog, "user-selected-watchdog");
     }
@@ -423,8 +445,8 @@ export async function startApp() {
   initModelPicker();
   initSettings();
   log("startApp", "Loading primary model: Watchdog Shape Keys Compressed .glb");
-  loadAvatar(MODELS.watchdog, "startup-default");
-  setStatus("Loading Watchdog model...");
+  loadAvatar(MODELS.raccoonDog, "startup-default");
+  setStatus("Loading Raccoon Dog model...");
   try {
     await initMediaPipe();
   } catch (e) {
