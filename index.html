@@ -46,7 +46,7 @@
       var t = d.toLocaleString("en-US", { timeZone: "America/Los_Angeles", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
       var full = detail ? msg + " | " + detail : msg;
       window.faceOnLogs.push({ t: t, msg: full });
-      if (window.faceOnLogs.length > 150) window.faceOnLogs.shift();
+      if (window.faceOnLogs.length > 2000) window.faceOnLogs.shift();
       console.log("[" + t + "] " + full);
     };
     window.faceOnGetLogs = function() {
@@ -63,7 +63,7 @@
         return m.startApp();
       }).catch(function(e) {
         window.faceOnLog("Load error", (e && e.message ? e.message : String(e)));
-        if (e && e.stack) window.faceOnLog("Stack", e.stack.slice(0, 300));
+        if (e && e.stack) window.faceOnLog("Load error stack", e.stack);
         document.getElementById("status").textContent = "Failed. Check Settings > Logs.";
       });
     });

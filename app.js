@@ -93,7 +93,8 @@ class Avatar {
   loadModel(url) {
     this.url = url;
     this._lastLoggedPct = -1;
-    log("loadModel", "URL: " + url);
+    const fullUrl = url.startsWith("http") ? url : (window.location.origin + window.location.pathname.replace(/\/[^/]*$/, "/") + url);
+    log("loadModel START", "url=" + url + " resolved=" + fullUrl);
     this.loader.load(
       url,
       (gltf) => {
@@ -106,22 +107,28 @@ class Avatar {
         gltf.scene.scale.setScalar(40);
         this.scene.add(gltf.scene);
         this.init(gltf);
-        log("loadModel OK", "morph meshes: " + this.morphTargetMeshes.length + (this.morphTargetMeshes.length === 0 ? " (no blend shapes - use Raccoon or add in Blender)" : ""));
+        const morphCount = this.morphTargetMeshes.length;
+        log("loadModel OK", "morph meshes=" + morphCount + (morphCount === 0 ? " (no blend shapes)" : ""));
       },
       (xhr) => {
         if (xhr.lengthComputable && xhr.total > 0) {
           const pct = Math.floor(100 * xhr.loaded / xhr.total);
-          for (const m of [25, 50, 75, 100]) {
+          for (const m of [10, 25, 50, 75, 90, 100]) {
             if (pct >= m && this._lastLoggedPct < m) {
               this._lastLoggedPct = m;
-              log("loadModel progress", m + "%");
+              log("loadModel progress", m + "% loaded=" + xhr.loaded + " total=" + xhr.total);
               break;
             }
           }
+        } else {
+          log("loadModel progress", "loaded=" + xhr.loaded + " total=" + (xhr.total || "unknown"));
         }
       },
       (err) => {
-        log("loadModel ERROR", err && err.message ? err.message : String(err));
+        const errStr = err ? (err.message || err.toString()) : "unknown";
+        log("loadModel ERROR", "url=" + this.url + " error=" + errStr);
+        if (err && err.stack) log("loadModel ERROR stack", err.stack);
+        setStatus("Model failed");
       }
     );
   }
@@ -254,8 +261,9 @@ async function streamWebcam() {
   }
 }
 
-function loadAvatar(url) {
+function loadAvatar(url, source) {
   if (!scene) return;
+  log("loadAvatar", "url=" + url + (source ? " source=" + source : ""));
   if (avatar) {
     avatar.remove();
     avatar = null;
@@ -266,13 +274,22 @@ function loadAvatar(url) {
 function initModelPicker() {
   const sel = document.getElementById("modelSelect");
   const fileIn = document.getElementById("fileInput");
-  sel.addEventListener("change", () => {
-    loadAvatar(sel.value === "raccoon" ? MODELS.raccoon : MODELS.watchdog);
-  });
   sel.value = "watchdog";
+  sel.addEventListener("change", () => {
+    const choice = sel.value;
+    log("modelSelect change", "choice=" + choice);
+    if (choice === "raccoon") {
+      loadAvatar(MODELS.raccoon, "user-selected-raccoon");
+    } else {
+      loadAvatar(MODELS.watchdog, "user-selected-watchdog");
+    }
+  });
   fileIn.addEventListener("change", (e) => {
     const f = e.target.files?.[0];
-    if (f) loadAvatar(URL.createObjectURL(f));
+    if (f) {
+      log("fileInput", "file=" + (f.name || "unknown"));
+      loadAvatar(URL.createObjectURL(f), "user-upload");
+    }
   });
 }
 
@@ -302,7 +319,7 @@ async function initMediaPipe() {
   } catch (e) {
     const errMsg = e && e.message ? e.message : String(e);
     log("initMediaPipe ERROR", errMsg);
-    if (e && e.stack) log("stack", e.stack.slice(0, 400));
+    if (e && e.stack) log("initMediaPipe ERROR stack", e.stack);
     setStatus("Face tracking failed. Check logs.");
   }
 }
@@ -323,14 +340,15 @@ export async function startApp() {
   } catch (e) {
     const errMsg = e && e.message ? e.message : String(e);
     log("startApp ERROR", "BasicScene: " + errMsg);
-    if (e && e.stack) log("stack", e.stack.slice(0, 400));
+    if (e && e.stack) log("startApp ERROR stack", e.stack);
     setStatus("Scene failed. Check logs.");
     return;
   }
   initModelPicker();
   initSettings();
-  loadAvatar(MODELS.watchdog);
-  setStatus("Loading face tracking...");
+  log("startApp", "Loading primary model: Watchdog Shape Keys Compressed .glb");
+  loadAvatar(MODELS.watchdog, "startup-default");
+  setStatus("Loading Watchdog model...");
   try {
     await initMediaPipe();
   } catch (e) {
