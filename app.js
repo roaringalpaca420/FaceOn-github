@@ -11,7 +11,7 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
 const MODELS = {
-  watchdog: "WatchDog_52blendshapes.glb",
+  watchdog: "Watchdog Shape Keys Compressed .glb",
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
 };
 
@@ -269,6 +269,7 @@ function initModelPicker() {
   sel.addEventListener("change", () => {
     loadAvatar(sel.value === "raccoon" ? MODELS.raccoon : MODELS.watchdog);
   });
+  sel.value = "watchdog";
   fileIn.addEventListener("change", (e) => {
     const f = e.target.files?.[0];
     if (f) loadAvatar(URL.createObjectURL(f));
@@ -328,7 +329,7 @@ export async function startApp() {
   }
   initModelPicker();
   initSettings();
-  loadAvatar(MODELS.raccoon);
+  loadAvatar(MODELS.watchdog);
   setStatus("Loading face tracking...");
   try {
     await initMediaPipe();
