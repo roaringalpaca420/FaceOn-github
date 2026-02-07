@@ -11,7 +11,7 @@ import {
 } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs";
 
 const MODELS = {
-  watchdog: "Watchdog Shape Keys Compressed .glb",
+  watchdog: "Watchdog Shape Keys and deforms Compressed .glb",
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
 };
 
