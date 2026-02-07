@@ -108,7 +108,7 @@
     document.getElementById("startBtn").addEventListener("click", function() {
       document.getElementById("status").textContent = "Loading...";
       window.faceOnLog("Start clicked", "Dynamic import starting");
-      import("./app.js?v=blendshape-map").then(function(m) {
+      import("./app.js?v=morph-fix").then(function(m) {
         window.faceOnLog("Module loaded", "Calling startApp");
         return m.startApp();
       }).catch(function(e) {

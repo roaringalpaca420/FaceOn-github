@@ -164,17 +164,20 @@ class Avatar {
       obj.frustumCulled = false;
       obj.renderOrder = 1;
       if (obj.morphTargetDictionary && obj.morphTargetInfluences) {
+        const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
+        mats.forEach((m) => { if (m) m.morphTargets = true; });
         this.morphTargetMeshes.push(obj);
         const names = Object.keys(obj.morphTargetDictionary);
-        log("model blendshapes", "mesh=" + obj.name + " count=" + names.length + " names=" + names.join(","));
+        log("model blendshapes", "mesh=" + obj.name + " count=" + names.length + " names=" + (names.length > 5 ? names.slice(0, 5).join(",") + "..." : names.join(",")));
       }
     });
   }
 
-  updateBlendshapes(blendshapes) {
+  updateBlendshapes(blendshapes, categories) {
     for (const mesh of this.morphTargetMeshes) {
-      if (!mesh.morphTargetDictionary || !mesh.morphTargetInfluences) continue;
-      const dict = mesh.morphTargetDictionary;
+      if (!mesh.morphTargetInfluences) continue;
+      const dict = mesh.morphTargetDictionary || {};
+      let appliedByName = 0;
       for (const [name, value] of blendshapes) {
         let key = name;
         if (!(key in dict)) {
@@ -185,7 +188,15 @@ class Avatar {
             }
           }
         }
-        if (key in dict) mesh.morphTargetInfluences[dict[key]] = value;
+        if (key in dict) {
+          mesh.morphTargetInfluences[dict[key]] = value;
+          appliedByName++;
+        }
+      }
+      if (appliedByName === 0 && categories && categories.length > 0) {
+        for (let i = 0; i < categories.length && i < mesh.morphTargetInfluences.length; i++) {
+          mesh.morphTargetInfluences[i] = categories[i].score;
+        }
       }
     }
   }
@@ -239,7 +250,18 @@ function detectFaceLandmarks(time) {
       log("faceDetected", "first frame matrices=" + matricesLen + " blendshapes=" + blendshapesLen);
       log("mediapipe blendshapes", "categories=" + mpNames);
     }
-    if (detectFrameCount <= 3 || (detectFrameCount % 90 === 0)) {
+    const logInterval = 30;
+    if (detectFrameCount % logInterval === 0) {
+      if (hasFace && blendshapes && blendshapes[0]) {
+        const cat = (n) => { const c = blendshapes[0].categories.find((x) => x.categoryName === n); return c ? c.score.toFixed(2) : "-"; };
+        const head = matricesLen > 0 ? "ok" : "no";
+        const mouth = "jawOpen=" + cat("jawOpen") + " mouthSmileL=" + cat("mouthSmileLeft") + " mouthSmileR=" + cat("mouthSmileRight") + " mouthClose=" + cat("mouthClose");
+        const eyes = "blinkL=" + cat("eyeBlinkLeft") + " blinkR=" + cat("eyeBlinkRight") + " wideL=" + cat("eyeWideLeft") + " wideR=" + cat("eyeWideRight");
+        log("tracking", "frame=" + detectFrameCount + " head=" + head + " face=ok | mouth: " + mouth + " | eyes: " + eyes);
+      } else {
+        log("tracking", "frame=" + detectFrameCount + " head=no face=no | mouth: - | eyes: -");
+      }
+    } else if (detectFrameCount <= 3) {
       log("detectFaceLandmarks", "frame=" + detectFrameCount + " ts=" + time + " matrices=" + matricesLen + " blendshapes=" + blendshapesLen + " avatar=" + (avatar ? "yes" : "no"));
     }
     if (!hasFace && detectFrameCount <= 5) {
@@ -251,14 +273,15 @@ function detectFaceLandmarks(time) {
     }
     if (blendshapes && blendshapes.length > 0 && avatar) {
       faceDetectedCount++;
+      const cats = blendshapes[0].categories;
       const map = new Map();
-      for (const c of blendshapes[0].categories) {
+      for (const c of cats) {
         let s = c.score;
         if (["browOuterUpLeft", "browOuterUpRight", "eyeBlinkLeft", "eyeBlinkRight"].includes(c.categoryName))
           s *= 1.2;
         map.set(c.categoryName, s);
       }
-      avatar.updateBlendshapes(map);
+      avatar.updateBlendshapes(map, cats);
     }
   } catch (e) {
     log("detectFaceLandmarks ERROR", "message=" + (e && e.message ? e.message : String(e)), e && e.stack ? { stack: e.stack } : {});
