@@ -15,6 +15,27 @@ const MODELS = {
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
 };
 
+const BLENDSHAPE_ALIASES = {
+  jawOpen: ["mouthOpen", "Mouth_Open", "mouth_open", "jaw_open"],
+  mouthClose: ["mouth_close", "Mouth_Close"],
+  mouthSmileLeft: ["mouthSmile_L", "Mouth_Smile_L", "mouth_smile_L"],
+  mouthSmileRight: ["mouthSmile_R", "Mouth_Smile_R", "mouth_smile_R"],
+  mouthFrownLeft: ["mouthFrown_L", "Mouth_Frown_L"],
+  mouthFrownRight: ["mouthFrown_R", "Mouth_Frown_R"],
+  mouthPucker: ["mouth_pucker", "Mouth_Pucker"],
+  mouthFunnel: ["mouth_funnel", "Mouth_Funnel"],
+  eyeBlinkLeft: ["eyeBlink_L", "Eye_Blink_L", "eye_blink_L"],
+  eyeBlinkRight: ["eyeBlink_R", "Eye_Blink_R", "eye_blink_R"],
+  browInnerUp: ["brow_inner_up", "Brow_Inner_Up"],
+  browOuterUpLeft: ["browOuterUp_L", "Brow_Outer_Up_L"],
+  browOuterUpRight: ["browOuterUp_R", "Brow_Outer_Up_R"],
+  browDownLeft: ["browDown_L", "Brow_Down_L"],
+  browDownRight: ["browDown_R", "Brow_Down_R"],
+  cheekPuff: ["cheek_puff", "Cheek_Puff"],
+  cheekSquintLeft: ["cheekSquint_L", "Cheek_Squint_L"],
+  cheekSquintRight: ["cheekSquint_R", "Cheek_Squint_R"],
+};
+
 function log(msg, detail, opts) {
   if (window.faceOnLog) window.faceOnLog(msg, detail, opts || {});
   else console.log(detail ? msg + " | " + detail : msg);
@@ -45,10 +66,13 @@ class BasicScene {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     document.getElementById("canvasContainer").appendChild(this.renderer.domElement);
 
-    this.scene.add(new THREE.AmbientLight(0xffffff, 1.0));
-    const d = new THREE.DirectionalLight(0xffffff, 1.0);
+    this.scene.add(new THREE.AmbientLight(0xffffff, 1.5));
+    const d = new THREE.DirectionalLight(0xffffff, 1.5);
     d.position.set(0, 1, 0);
     this.scene.add(d);
+    const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+    fill.position.set(-0.5, 0.5, 1);
+    this.scene.add(fill);
 
     this.camera.position.z = 0;
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
@@ -139,17 +163,29 @@ class Avatar {
       if (!obj.isMesh) return;
       obj.frustumCulled = false;
       obj.renderOrder = 1;
-      if (obj.morphTargetDictionary && obj.morphTargetInfluences)
+      if (obj.morphTargetDictionary && obj.morphTargetInfluences) {
         this.morphTargetMeshes.push(obj);
+        const names = Object.keys(obj.morphTargetDictionary);
+        log("model blendshapes", "mesh=" + obj.name + " count=" + names.length + " names=" + names.join(","));
+      }
     });
   }
 
   updateBlendshapes(blendshapes) {
     for (const mesh of this.morphTargetMeshes) {
       if (!mesh.morphTargetDictionary || !mesh.morphTargetInfluences) continue;
+      const dict = mesh.morphTargetDictionary;
       for (const [name, value] of blendshapes) {
-        if (!(name in mesh.morphTargetDictionary)) continue;
-        mesh.morphTargetInfluences[mesh.morphTargetDictionary[name]] = value;
+        let key = name;
+        if (!(key in dict)) {
+          const aliases = BLENDSHAPE_ALIASES[name];
+          if (aliases) {
+            for (const alt of aliases) {
+              if (alt in dict) { key = alt; break; }
+            }
+          }
+        }
+        if (key in dict) mesh.morphTargetInfluences[dict[key]] = value;
       }
     }
   }
@@ -199,7 +235,9 @@ function detectFaceLandmarks(time) {
     const hasFace = matricesLen > 0 || blendshapesLen > 0;
     if (hasFace && !faceDetectedLogged) {
       faceDetectedLogged = true;
+      const mpNames = blendshapes && blendshapes[0] ? blendshapes[0].categories.map((c) => c.categoryName).join(",") : "";
       log("faceDetected", "first frame matrices=" + matricesLen + " blendshapes=" + blendshapesLen);
+      log("mediapipe blendshapes", "categories=" + mpNames);
     }
     if (detectFrameCount <= 3 || (detectFrameCount % 90 === 0)) {
       log("detectFaceLandmarks", "frame=" + detectFrameCount + " ts=" + time + " matrices=" + matricesLen + " blendshapes=" + blendshapesLen + " avatar=" + (avatar ? "yes" : "no"));
