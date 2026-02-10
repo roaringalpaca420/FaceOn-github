@@ -13,7 +13,7 @@ import {
 const MODELS = {
   watchdog: "Watchdog Shape Keys and deforms Compressed .glb",
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
-  raccoonDog: "raccoon dog .glb",
+  pug: "Pug 3D pup comp.glb",
 };
 
 const BLENDSHAPE_ALIASES = {
@@ -372,14 +372,14 @@ function loadAvatar(url, source) {
 function initModelPicker() {
   const sel = document.getElementById("modelSelect");
   const fileIn = document.getElementById("fileInput");
-  sel.value = "raccoonDog";
+  sel.value = "pug";
   sel.addEventListener("change", () => {
     const choice = sel.value;
     log("modelSelect change", "choice=" + choice);
     if (choice === "raccoon") {
       loadAvatar(MODELS.raccoon, "user-selected-raccoon");
-    } else if (choice === "raccoonDog") {
-      loadAvatar(MODELS.raccoonDog, "user-selected-raccoon-dog");
+    } else if (choice === "pug") {
+      loadAvatar(MODELS.pug, "user-selected-pug");
     } else {
       loadAvatar(MODELS.watchdog, "user-selected-watchdog");
     }
@@ -444,9 +444,9 @@ export async function startApp() {
   }
   initModelPicker();
   initSettings();
-  log("startApp", "Loading primary model: Watchdog Shape Keys Compressed .glb");
-  loadAvatar(MODELS.raccoonDog, "startup-default");
-  setStatus("Loading Raccoon Dog model...");
+  log("startApp", "Loading primary model: Pug 3D pup comp.glb");
+  loadAvatar(MODELS.pug, "startup-default");
+  setStatus("Loading Pug pup model...");
   try {
     await initMediaPipe();
   } catch (e) {
