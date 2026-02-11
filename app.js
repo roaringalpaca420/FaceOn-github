@@ -13,7 +13,7 @@ import {
 const MODELS = {
   watchdog: "Watchdog Shape Keys and deforms Compressed .glb",
   raccoon: "https://assets.codepen.io/9177687/raccoon_head.glb",
-  pug: "Pug 3D pup comp TRACKED.glb",
+  pug: "pug-pup-tracked.glb",
 };
 
 const BLENDSHAPE_ALIASES = {
@@ -444,7 +444,7 @@ export async function startApp() {
   }
   initModelPicker();
   initSettings();
-  log("startApp", "Loading primary model: Pug 3D pup comp TRACKED.glb");
+  log("startApp", "Loading primary model: pug-pup-tracked.glb");
   loadAvatar(MODELS.pug, "startup-default");
   setStatus("Loading Pug pup model...");
   try {
