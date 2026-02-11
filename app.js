@@ -105,9 +105,10 @@ class BasicScene {
 }
 
 class Avatar {
-  constructor(url, scene) {
+  constructor(url, scene, opts = {}) {
     this.url = url;
     this.scene = scene;
+    this.fallbackUrl = opts.fallbackUrl || null;
     this.loader = new GLTFLoader();
     this.gltf = null;
     this.root = null;
@@ -152,7 +153,15 @@ class Avatar {
       (err) => {
         const errStr = err ? (err.message || err.toString()) : "unknown";
         log("loadModel ERROR", "url=" + this.url + " error=" + errStr, err && err.stack ? { stack: err.stack } : {});
-        setStatus("Model failed");
+        if (this.fallbackUrl) {
+          log("loadModel", "Trying fallback: " + this.fallbackUrl);
+          setStatus("Pug failed, loading fallback model...");
+          const fallback = this.fallbackUrl;
+          this.fallbackUrl = null;
+          this.loadModel(fallback);
+        } else {
+          setStatus("Model failed. Check Settings > Logs.");
+        }
       }
     );
   }
@@ -359,14 +368,14 @@ async function streamWebcam() {
   }
 }
 
-function loadAvatar(url, source) {
+function loadAvatar(url, source, opts = {}) {
   if (!scene) return;
   log("loadAvatar", "url=" + url + (source ? " source=" + source : ""));
   if (avatar) {
     avatar.remove();
     avatar = null;
   }
-  avatar = new Avatar(url, scene.scene);
+  avatar = new Avatar(url, scene.scene, opts);
 }
 
 function initModelPicker() {
@@ -445,7 +454,7 @@ export async function startApp() {
   initModelPicker();
   initSettings();
   log("startApp", "Loading primary model: pug-pup-tracked.glb");
-  loadAvatar(MODELS.pug, "startup-default");
+  loadAvatar(MODELS.pug, "startup-default", { fallbackUrl: MODELS.watchdog });
   setStatus("Loading Pug pup model...");
   try {
     await initMediaPipe();
